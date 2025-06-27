@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../../libs/mapper"
+    },
+    {
+      "path": "../../libs/models"
+    },
+    {
+      "path": "../../libs/queues"
+    },
+    {
+      "path": "../../libs/common"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ]
+}

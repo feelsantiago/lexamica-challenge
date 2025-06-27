@@ -1,0 +1,34 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./libs/mapper"
+    },
+    {
+      "path": "./libs/common"
+    },
+    {
+      "path": "./apps/music-config"
+    },
+    {
+      "path": "./apps/music-auth"
+    },
+    {
+      "path": "./apps/music-inventory"
+    },
+    {
+      "path": "./apps/music-faker"
+    },
+    {
+      "path": "./apps/music-integration"
+    },
+    {
+      "path": "./libs/models"
+    },
+    {
+      "path": "./libs/queues"
+    }
+  ]
+}
