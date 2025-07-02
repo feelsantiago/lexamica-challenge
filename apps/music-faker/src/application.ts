@@ -22,8 +22,8 @@ export class Application {
 
     this._midleware.tail();
 
-    this._app.listen(3004, () => {
-      this._logger.info('[Music Faker Server] - Running on port 3004');
+    this._app.listen(5000, () => {
+      this._logger.info('[Music Faker Server] - Running on port 5000');
     });
   }
 }

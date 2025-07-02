@@ -10,6 +10,7 @@ import { middlewareProviders } from './middleware/middleware.providers';
 import { organizationProviders } from './organization/organization.providers';
 import { healthProviders } from './health/health.providers';
 import { authProviders } from './auth/auth.providers';
+import { configProviders } from './config/config.providers';
 
 @registry([
   ...applicationProviders,
@@ -21,6 +22,7 @@ import { authProviders } from './auth/auth.providers';
     host: 'localhost',
     port: 6379,
   }),
+  ...configProviders,
   ...authProviders,
   ...healthProviders,
   ...organizationProviders,

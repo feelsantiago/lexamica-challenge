@@ -2,6 +2,7 @@ import { App, ApplicationRoutes, Logger, Routes } from '@lexamica/common';
 import { inject, injectable, injectAll } from 'tsyringe';
 import { Middleware } from './middleware/middleware';
 import { IntegrationWorker } from './integration/integration.worker';
+import { Config } from './config/config';
 
 @injectable()
 export class Application {
@@ -10,7 +11,8 @@ export class Application {
     @inject(Middleware) private readonly _midleware: Middleware,
     @injectAll(Routes) private readonly _routes: ApplicationRoutes[],
     @inject(IntegrationWorker) private readonly _worker: IntegrationWorker,
-    @inject(Logger) private readonly _logger: Logger
+    @inject(Logger) private readonly _logger: Logger,
+    @inject(Config) private readonly _config: Config
   ) {}
 
   public start(): void {
@@ -26,8 +28,10 @@ export class Application {
 
     this._worker.register();
 
-    this._app.listen(3002, () => {
-      this._logger.info('[Music Inventory Server] - Running on port 3002');
+    this._app.listen(this._config.port(), () => {
+      this._logger.info(
+        `[Music Inventory Server] - Running on port ${this._config.port()}`
+      );
     });
   }
 }

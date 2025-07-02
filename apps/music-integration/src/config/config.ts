@@ -3,9 +3,9 @@ import { singleton } from 'tsyringe';
 
 @singleton()
 export class Config {
-  public organizationUrl(): string {
-    return Option.from(process.env.ORGANIZATION_URL).unwrapOr(
-      'http://no-url.found.com'
-    );
+  public port(): number {
+    return Option.from(process.env.PORT)
+      .map((port) => parseInt(port))
+      .unwrapOr(3003);
   }
 }
