@@ -27,7 +27,7 @@ This project uses the following dependencies:
 
 ### Setup
 
-This project is built with _Nx_ (make sure to have redis running in localhost:6379)
+This project is built with _Nx_ (make sure to have Redis running on localhost:6379)
 
 ```bash
 -- It will run the config server on localhost:3000
@@ -48,7 +48,7 @@ $ npx nx serve music-faker
 
 ### Working example
 
-After running all the server, we can dispatch a simple sync example
+After running all the servers, we can dispatch a simple sync example
 
 1. Create a user
 
@@ -281,8 +281,8 @@ method: PUT
 body
 ```ts
 {
-  create: string[], // webhooks url to be called when itens are generated
-  remove: string[], // webhooks url to be called when itens are deleted
+  create: string[], //webhook's url to be called when items are generated
+  remove: string[], // webhooks url to be called when items are deleted
 }
 ```
 
