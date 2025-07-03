@@ -1,101 +1,288 @@
-# Lexamica
+# Lexamica Challenge
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+### Project Overview
+Create a scalable, configurable bi-directional synchronization system between two services using Node.js, MongoDB, and Redis. The architecture should support both webhooks and polling mechanisms while allowing for organization-specific customizations.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+I've made a small project to sync music data between two servers.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/node?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+### Architecture
 
-## Run tasks
+![lexamica](https://github.com/user-attachments/assets/936c2124-90c4-4d0a-aae8-3fa049977044)
 
-To run the dev server for your app, use:
+For each `Organization` that is added to the system, we register its polling strategy with recurring jobs in the `PollingQueue`, also we register webhooks for output synchronization in the `OutputQueue`.
 
-```sh
-npx nx serve music-server
+This project uses the following dependencies:
+
+- [Node](https://nodejs.org/en) - Javascritp Runtime Environment
+- [Express](https://expressjs.com/) - Web Framework
+- [BullMQ](https://docs.bullmq.io/) - Queue System
+- [Redis](https://redis.io/) - Cache/Queue Database
+- [Nx](https://nx.dev/) - Build/Monorepo Platform
+- [TSyringe](https://www.npmjs.com/package/tsyringe) - Dependency Injection Container
+- [Winston](https://www.npmjs.com/package/winston) - Logger
+- [Sapphire Result](https://www.npmjs.com/package/@sapphire/result) - Rust-Like error handler
+- [Zod](https://zod.dev/) - Schema validation
+- [Validator](https://www.npmjs.com/package/validator) - String sanitizer
+- [Passport](https://www.passportjs.org/) - Authentication
+
+### Setup
+
+This project is built with _Nx_ (make sure to have redis running in localhost:6379)
+
+```bash
+-- It will run the config server on localhost:3000
+$ npx nx serve music-config
+
+-- It will run the auth server on localhost:3001
+$ npx nx serve music-auth
+
+-- It will run the inventory server on localhost:3002
+$ npx nx serve music-inventory
+
+-- It will run the integration server on localhost:3000
+$ npx nx serve music-integration
+
+-- It will run the faker server on localhost:5000
+$ npx nx serve music-faker
 ```
 
-To create a production bundle:
+### Working example
 
-```sh
-npx nx build music-server
+After running all the server, we can dispatch a simple sync example
+
+1. Create a user
+
+```bash
+curl --request POST \
+  --url http://localhost:3001/auth/sign-up \
+  --header 'content-type: application/json' \
+  --data '{
+  "email": "user@test.com",
+  "password": "12345678"
+}'
 ```
 
-To see all available targets to run for a project, run:
+2. Create an organization with a simple mapping schema
 
-```sh
-npx nx show project music-server
+```bash
+curl --request POST \
+  --url http://localhost:3000/organization \
+  --header 'authorization: Bearer {{token}} \
+  --header 'content-type: application/json' \
+  --data '{
+  "synchronization": "two-way",
+  "webhook": [
+    {
+      "type": "input",
+      "url": "http://localhost:3000/sync?orgId=",
+      "method": "DELETE"
+    },
+    {
+      "type": "output",
+      "url": "http://localhost:3004/sync/create",
+      "method": "POST"
+    }
+  ],
+  "polling": [
+    {
+      "endpoint": "http://localhost:3004/music",
+      "interval": 1,
+      "type": "minute"
+    }
+  ],
+  "mappings": {
+    "externalId": {
+      "type": "string",
+      "source": "id",
+      "required": true
+    },
+    "name": {
+      "type": "string",
+      "source": "name",
+      "required": true
+    },
+    "artist": {
+      "type": "string",
+      "source": "artist",
+      "required": "true"
+    },
+    "album": {
+      "type": "string",
+      "source": "album",
+      "required": "true"
+    }
+  },
+  "transforms": []
+}'
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+3. Set up the  faker server config to call the integration server webhook when deleting data with the organization Id
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Add new projects
-
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-Use the plugin's generator to create new projects.
-
-To generate a new application, use:
-
-```sh
-npx nx g @nx/node:app demo
+```bash
+curl --request PUT \
+  --url http://localhost:5000/config \
+  --header 'content-type: application/json' \
+  --data '{
+  "create": [],
+  "remove": [
+    "http://localhost:3003/sync?orgId={{ orgId }}"
+  ]
+}'
 ```
 
-To generate a new library, use:
+4. Generate some fake data
 
-```sh
-npx nx g @nx/node:lib mylib
+```bash
+curl --request POST \
+  --url http://localhost:5000/music/generate \
+  --header 'content-type: application/json' \
+  --data '{
+  "count": 5
+}'
 ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+The system will start polling data each minute. If you delete some data from the `faker` server, it will send that information to the integration layer, which will sync the inventory. If you create an inventory for the organization, it will be sent over to the faker server.
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### API
 
-## Set up CI!
+- **Auth**
 
-### Step 1
-
-To connect to Nx Cloud, run the following command:
-
-```sh
-npx nx connect
+#### Create a user
+endpoint: `/auth/sign-up`
+method: POST
+body 
+```ts
+{
+  email: string;
+  password: string; // min(8) 
+}
 ```
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
+#### Signin
+endpoint: `/auth/sign-in`
+body 
+```ts
+{
+  email: string;
+  password: string;  
+}
 ```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- **Organization**
 
-## Install Nx Console
+#### Create Organization
+endpoint: `/organization`
+method: POST
+auth: `Authorization: Beare: {{ token }}
+body
+```ts
+{
+  synchronization: "one-way" - "two-way";
+  webhooks: [{
+    type: "input" | "output";
+    url: string;
+    method: "POST" | "DELETE"
+  }];
+  polling: [{
+    endpoint: string;
+    interval: number;
+    type: "minute" | "hour" | "day";
+  }];
+  mappings: {
+    // dynamic keys mapped to our domain
+    [key]: {
+      type: "string" | "number" | "boolean" | "array" | "object";
+      source: string; // Third party source property;
+      required: boolean;
+      //in case of array
+      items: {
+        [key]: ...
+      }
+      // in case of objects
+      properties: {
+        [key]: ...
+      }
+    }
+  }
+}
+```
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+#### Fetch Organization
+endpoint: `/organization/:id`
+method: GET
+auth: `Authorization: Beare {{ token }}`
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+#### Delete Organization
+endpoint: `/organization/:id`
+method: DELETE
+auth: `Authorization: Beare {{ token }}`
 
-## Useful links
+- **Inventory**
 
-Learn more:
+#### Create an inventory
+endpoint: `/inventory`
+method: POST
+auth: `Authorization: Beare {{ token }`
+headers: `x-organization-id: {{ orgId }}`
+body
 
-- [Learn more about this workspace setup](https://nx.dev/nx-api/node?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+```ts
+{
+  externalId: string;
+  name: string;
+  artist: string;
+  album: string;
+}
+```
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+#### Fetch an inventory
+endpoint: `/inventory/organization/:orgId`
+method: GET
+auth: `Authorization: Beare {{ token }`
+
+#### Fetch all inventories
+endpoint: `/inventory`
+method: GET
+auth: `Authorization: Beare {{ token }`
+
+#### Delete an inventory
+endpoint: `/inventory/:id`
+method: DELETE
+auth: `Authorization: Beare {{ token }`
+
+- **Faker**
+
+#### Generate fake data
+endpoint: `/music/generate`
+method: POST
+body
+
+```ts
+{
+  count: number // min(1) - max(100)
+}
+```
+
+#### Fetch one fake item
+endpoint: `/music/:id`
+method: GET
+
+#### Fetch all fake items
+endpoint: `/music`
+method: GET
+
+#### Delete a fake item
+endpoint: `/music/:id`
+method: DELETE
+
+#### Change fake webhook configs
+endpoint: `/music/config`
+method: PUT
+body
+```ts
+{
+  create: string[], // webhooks url to be called when itens are generated
+  remove: string[], // webhooks url to be called when itens are deleted
+}
+```
+
