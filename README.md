@@ -67,7 +67,7 @@ curl --request POST \
 ```bash
 curl --request POST \
   --url http://localhost:3000/organization \
-  --header 'authorization: Bearer {{token}} \
+  --header 'authorization: Bearer {{token}}' \
   --header 'content-type: application/json' \
   --data '{
   "synchronization": "two-way",
